@@ -4,6 +4,7 @@ import { partytownSnippet } from '@builder.io/partytown/integration';
 import { copyLibFiles } from '@builder.io/partytown/utils';
 import { Plugin } from 'vite';
 
+// This hack required because these packages are CJS, so default.default has to be used
 const traverse = // @ts-ignore
 	(await import('@babel/traverse')).default.default as typeof import('@babel/traverse').default;
 
@@ -16,11 +17,13 @@ export function dynamic_party(): Plugin {
 	let development = true;
 
 	let includes_gtm = false;
+	// TODO: Add support for Facebook Pixel
+	// let includes_fbq = false
 
 	const { promise, resolve } = with_resolvers();
 
 	return {
-		name: 'add-hello-world',
+		name: 'dynamic-partytown',
 		enforce: 'pre',
 		configResolved(config) {
 			public_path = config.publicDir;
@@ -79,7 +82,6 @@ export function dynamic_party(): Plugin {
 
 						// We need to access value for StringLiteral and quasis[0].value.raw for TemplateLiteral
 						let final_value = '';
-
 						if (t.isStringLiteral(__html_value)) {
 							final_value = __html_value.value;
 						} else if (t.isTemplateLiteral(__html_value)) {

@@ -7,12 +7,15 @@ import { Plugin } from 'vite';
 const traverse = // @ts-ignore
 	(await import('@babel/traverse')).default.default as typeof import('@babel/traverse').default;
 
-// @ts-ignore
-const generate = (await import('@babel/generator')).default.default;
+const generate = // @ts-ignore
+	(await import('@babel/generator')).default.default as typeof import('@babel/generator').default;
 
 export function dynamic_party(): Plugin {
 	let should_inject_partytown = false;
 	let public_path = '';
+	let development = true;
+
+	let includes_gtm = false;
 
 	const { promise, resolve } = with_resolvers();
 
@@ -21,6 +24,7 @@ export function dynamic_party(): Plugin {
 		enforce: 'pre',
 		configResolved(config) {
 			public_path = config.publicDir;
+			development = config.env.DEV;
 		},
 		transform(code, id) {
 			// Filter out non-JSX/TSX files
@@ -82,7 +86,7 @@ export function dynamic_party(): Plugin {
 							final_value = __html_value.quasis[0].value.raw;
 						}
 
-						found_datalayer = has_gtm(final_value);
+						includes_gtm = found_datalayer = has_gtm(final_value);
 
 						if (!found_datalayer) return console.log('Google tag manager not found');
 
@@ -145,11 +149,26 @@ export function dynamic_party(): Plugin {
 			// Copy partytown files to public
 			await copyLibFiles(public_path + '/~partytown');
 
-			// Rewrite the html, add script tag
-
 			return {
 				html,
-				tags: [{ injectTo: 'head-prepend', tag: 'script', children: partytownSnippet() }],
+				tags: [
+					// Partytown scripts
+					{
+						injectTo: 'head',
+						tag: 'script',
+						children: partytownSnippet(),
+					},
+
+					// The partytown config
+					{
+						injectTo: 'head-prepend',
+						tag: 'script',
+						children: `partytown = {
+							debug: ${development},
+							forward: ${JSON.stringify([includes_gtm && 'dataLayer.push'].filter(Boolean))}
+						};`,
+					},
+				],
 			};
 		},
 	};
